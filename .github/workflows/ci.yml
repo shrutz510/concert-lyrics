@@ -1,0 +1,77 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+  workflow_call: # the release workflow runs this first
+  schedule:
+    - cron: "0 14 * * 1" # Mondays: catches setlist.fm or LRCLIB changing under us
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install ruff==0.17.6
+      - name: Check code
+        run: ruff check --output-format=github .
+      - name: Check formatting
+        run: ruff format --check .
+
+  test:
+    name: Tests (Python ${{ matrix.python }}, ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        python: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+        include:
+          - os: macos-latest
+            python: "3.12"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Run unit tests (offline, no API key needed)
+        run: python -m unittest discover -s tests -v
+
+  smoke:
+    name: Live smoke test
+    needs: [lint, test]
+    # Real network calls: only on main, on the weekly schedule, or when run by hand.
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    env:
+      SETLISTFM_API_KEY: ${{ secrets.SETLISTFM_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build a real lyrics page
+        run: |
+          if [ -z "$SETLISTFM_API_KEY" ]; then
+            echo "::notice::Skipped: add a SETLISTFM_API_KEY repository secret to enable the live smoke test."
+            exit 0
+          fi
+          python app.py "Olivia Rodrigo" < /dev/null | tee smoke.txt
+          grep -q "^Saved: " smoke.txt
+          songs=$(sed -n 's/^\([0-9]*\) songs, lyrics found for \([0-9]*\)$/\1 \2/p' smoke.txt)
+          read -r total found <<< "$songs"
+          echo "Setlist had $total songs, lyrics found for $found"
+          [ "${total:-0}" -gt 0 ] && [ "${found:-0}" -gt 0 ]

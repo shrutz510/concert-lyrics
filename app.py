@@ -50,6 +50,7 @@ class NeedsChoice(AppError):
 
 # ---------------------------------------------------------------- helpers
 
+
 def load_api_key():
     key = os.environ.get("SETLISTFM_API_KEY", "")
     env = HERE / ".env"
@@ -104,23 +105,28 @@ def query_url(base, **params):
 
 # ---------------------------------------------------------------- setlist.fm
 
+
 def setlistfm(path, api_key, **params):
     if not api_key:
-        raise AppError("No setlist.fm API key found. Get a free one at "
-                       "https://www.setlist.fm/settings/api and put it in a .env file in "
-                       "this folder as SETLISTFM_API_KEY=your-key")
+        raise AppError(
+            "No setlist.fm API key found. Get a free one at "
+            "https://www.setlist.fm/settings/api and put it in a .env file in "
+            "this folder as SETLISTFM_API_KEY=your-key"
+        )
     url = query_url(f"https://api.setlist.fm/rest/1.0/{path}", **params)
     try:
         return get_json(url, {"x-api-key": api_key, "Accept": "application/json"}) or {}
     except urllib.error.HTTPError as e:
         if e.code in (401, 403):
-            raise AppError("setlist.fm rejected the API key. Check SETLISTFM_API_KEY in .env "
-                           "(a brand-new key can take a few minutes to start working).")
+            raise AppError(
+                "setlist.fm rejected the API key. Check SETLISTFM_API_KEY in .env "
+                "(a brand-new key can take a few minutes to start working)."
+            ) from None
         if e.code == 429:
-            raise AppError("setlist.fm is rate-limiting requests. Wait a minute and try again.")
-        raise AppError(f"setlist.fm returned an error ({e.code}). Try again in a moment.")
+            raise AppError("setlist.fm is rate-limiting requests. Wait a minute and try again.") from None
+        raise AppError(f"setlist.fm returned an error ({e.code}). Try again in a moment.") from None
     except OSError:
-        raise AppError("Couldn't reach setlist.fm. Check your internet connection.")
+        raise AppError("Couldn't reach setlist.fm. Check your internet connection.") from None
 
 
 def artist_entry(name, mbid, note=""):
@@ -133,19 +139,28 @@ def musicbrainz_suggestions(name):
     if not words:
         return []
     try:
-        data = get_json(query_url("https://musicbrainz.org/ws/2/artist", fmt="json", limit=8,
-                                  query=" OR ".join(w + "~" for w in words))) or {}
+        data = (
+            get_json(
+                query_url(
+                    "https://musicbrainz.org/ws/2/artist",
+                    fmt="json",
+                    limit=8,
+                    query=" OR ".join(w + "~" for w in words),
+                )
+            )
+            or {}
+        )
     except Exception:
         return []
-    return [artist_entry(a["name"], a["id"], a.get("disambiguation"))
-            for a in data.get("artists", []) if a.get("id")]
+    return [artist_entry(a["name"], a["id"], a.get("disambiguation")) for a in data.get("artists", []) if a.get("id")]
 
 
 def find_artist(name, api_key):
     """The artist whose name matches exactly. Otherwise ask the user rather than guess."""
     data = setlistfm("search/artists", api_key, artistName=name, sort="relevance")
-    found = [artist_entry(a["name"], a["mbid"], a.get("disambiguation"))
-             for a in data.get("artist", []) if a.get("mbid")]
+    found = [
+        artist_entry(a["name"], a["mbid"], a.get("disambiguation")) for a in data.get("artist", []) if a.get("mbid")
+    ]
     exact = [a for a in found if norm(a["name"]) == norm(name)]
     if len(exact) > 1:  # same name, different artists: keep the ones that actually play shows
         exact = [a for a in exact if latest_setlist(a["mbid"], api_key, pages=1)] or exact
@@ -156,11 +171,13 @@ def find_artist(name, api_key):
         raise NeedsChoice(f'Several artists match "{name}". Which one?', (exact + others)[:8])
 
     candidates = {a["mbid"]: a for a in musicbrainz_suggestions(name) + found}.values()
-    close = sorted((a for a in candidates if similarity(name, a["name"]) >= 0.6),
-                   key=lambda a: similarity(name, a["name"]), reverse=True)
+    close = sorted(
+        (a for a in candidates if similarity(name, a["name"]) >= 0.6),
+        key=lambda a: similarity(name, a["name"]),
+        reverse=True,
+    )
     if close:
-        raise NeedsChoice(f'No artist called "{name}" on setlist.fm. '
-                          "Did you mean one of these?", close[:6])
+        raise NeedsChoice(f'No artist called "{name}" on setlist.fm. Did you mean one of these?', close[:6])
     raise AppError(f'Couldn\'t find an artist called "{name}". Check the spelling and try again.')
 
 
@@ -173,14 +190,16 @@ def songs_in(setlist):
             if s.get("tape") or not s.get("name"):
                 continue
             cover = (s.get("cover") or {}).get("name")
-            songs.append({
-                "title": s["name"],
-                "section": section.rstrip(":"),
-                "artist": cover or setlist["artist"]["name"],
-                "is_cover": bool(cover),
-                "with": (s.get("with") or {}).get("name"),
-                "info": s.get("info", ""),
-            })
+            songs.append(
+                {
+                    "title": s["name"],
+                    "section": section.rstrip(":"),
+                    "artist": cover or setlist["artist"]["name"],
+                    "is_cover": bool(cover),
+                    "with": (s.get("with") or {}).get("name"),
+                    "info": s.get("info", ""),
+                }
+            )
     return songs
 
 
@@ -198,22 +217,31 @@ def latest_setlist(mbid, api_key, pages=3):
 
 # ---------------------------------------------------------------- lyrics
 
+
 def fetch_lyrics(title, artist):
     """Returns (lyrics, None) or (None, reason they're missing)."""
     try:
-        results = (get_json(query_url("https://lrclib.net/api/search", track_name=title, artist_name=artist))
-                   or get_json(query_url("https://lrclib.net/api/search", track_name=title))
-                   or [])
+        results = (
+            get_json(query_url("https://lrclib.net/api/search", track_name=title, artist_name=artist))
+            or get_json(query_url("https://lrclib.net/api/search", track_name=title))
+            or []
+        )
     except Exception:
         return None, "the lyrics site didn't respond"
 
     want_artist, want_title = norm(artist), norm(title)
-    for r in sorted(results, reverse=True, key=lambda r: (norm(r.get("artistName")) == want_artist,
-                                                          norm(r.get("trackName")) == want_title,
-                                                          bool(r.get("plainLyrics")))):
+    for r in sorted(
+        results,
+        reverse=True,
+        key=lambda r: (
+            norm(r.get("artistName")) == want_artist,
+            norm(r.get("trackName")) == want_title,
+            bool(r.get("plainLyrics")),
+        ),
+    ):
         got_artist = norm(r.get("artistName"))
         if not (got_artist and (want_artist in got_artist or got_artist in want_artist)):
-            break  # never use a different artist's song that happens to share the title
+            continue  # never use a different artist's song that happens to share the title
         if r.get("instrumental"):
             return None, "instrumental"
         if r.get("plainLyrics"):
@@ -222,6 +250,7 @@ def fetch_lyrics(title, artist):
 
 
 # ---------------------------------------------------------------- the lyrics book
+
 
 def build_book(name, api_key, mbid=None):
     """Find the artist (unless `mbid` is already known), their latest setlist, and all lyrics."""
@@ -238,8 +267,10 @@ def build_book(name, api_key, mbid=None):
 
     setlist = latest_setlist(mbid, api_key)
     if not setlist:
-        raise AppError(f'"{name}" is on setlist.fm, but none of their shows has a song list yet. '
-                       "Try again after their next concert is posted.")
+        raise AppError(
+            f'"{name}" is on setlist.fm, but none of their shows has a song list yet. '
+            "Try again after their next concert is posted."
+        )
     songs = songs_in(setlist)
     with ThreadPoolExecutor(max_workers=4) as pool:
         for song, (lyrics, missing) in zip(songs, pool.map(lambda s: fetch_lyrics(s["title"], s["artist"]), songs)):
@@ -261,8 +292,7 @@ def build_book(name, api_key, mbid=None):
 def old_warning(book):
     age = (date.today() - book["date"]).days
     if age > OLD_SETLIST_DAYS:
-        return (f"This is their most recent setlist, but it's {age} days old. "
-                "Tonight's songs may be quite different.")
+        return f"This is their most recent setlist, but it's {age} days old. Tonight's songs may be quite different."
     return ""
 
 
@@ -280,29 +310,38 @@ def render_book(book):
         group = list(group)
         if section:
             song_list.append(f'<div class="sec">{e(section)}</div>')
-        items = "".join(f'<li><a href="#s{i}">{e(s["title"])}</a>'
-                        f'{"" if s["lyrics"] else " <span class=mark>(no lyrics)</span>"}</li>'
-                        for i, s in group)
+        items = "".join(
+            f'<li><a href="#s{i}">{e(s["title"])}</a>'
+            f"{'' if s['lyrics'] else ' <span class=mark>(no lyrics)</span>'}</li>"
+            for i, s in group
+        )
         song_list.append(f'<ol start="{group[0][0]}">{items}</ol>')
 
     sections = []
     for i, s in numbered:
-        byline = [f'Cover of {e(s["artist"])}' if s["is_cover"] else e(s["artist"])]
+        byline = [f"Cover of {e(s['artist'])}" if s["is_cover"] else e(s["artist"])]
         if s["with"]:
-            byline.append(f'with {e(s["with"])}')
+            byline.append(f"with {e(s['with'])}")
         if s["info"]:
             byline.append(e(s["info"]))
-        body = (f'<div class="lyrics">{e(s["lyrics"])}</div>' if s["lyrics"]
-                else f'<p class="missing">Lyrics not available: {e(s["missing"])}.</p>')
-        sections.append(f'<section class="song" id="s{i}"><h2>{i}. {e(s["title"])}</h2>'
-                        f'<div class="by">{" · ".join(byline)}</div>{body}</section>')
+        body = (
+            f'<div class="lyrics">{e(s["lyrics"])}</div>'
+            if s["lyrics"]
+            else f'<p class="missing">Lyrics not available: {e(s["missing"])}.</p>'
+        )
+        sections.append(
+            f'<section class="song" id="s{i}"><h2>{i}. {e(s["title"])}</h2>'
+            f'<div class="by">{" · ".join(byline)}</div>{body}</section>'
+        )
 
     found = sum(1 for s in songs if s["lyrics"])
-    meta = [f"Latest setlist: {nice_date(book['date'])}",
-            e(" · ".join(filter(None, [book["venue"], book["place"]]))),
-            e(book["tour"]),
-            f"{len(songs)} songs · lyrics for {found}"
-            + (f' · <a href="{e(book["url"])}">setlist.fm</a>' if book["url"] else "")]
+    meta = [
+        f"Latest setlist: {nice_date(book['date'])}",
+        e(" · ".join(filter(None, [book["venue"], book["place"]]))),
+        e(book["tour"]),
+        f"{len(songs)} songs · lyrics for {found}"
+        + (f' · <a href="{e(book["url"])}">setlist.fm</a>' if book["url"] else ""),
+    ]
     warning = old_warning(book)
 
     return Template((TEMPLATES / "book.html").read_text()).substitute(
@@ -374,8 +413,10 @@ def run_server():
     try:
         server = ThreadingHTTPServer(("127.0.0.1", PORT), Handler)
     except OSError:
-        sys.exit(f"Port {PORT} is already in use. Is the app already running? "
-                 f"Open http://localhost:{PORT} or run with PORT=8766 python3 app.py")
+        sys.exit(
+            f"Port {PORT} is already in use. Is the app already running? "
+            f"Open http://localhost:{PORT} or run with PORT=8766 python3 app.py"
+        )
     print(f"Concert Lyrics running at http://localhost:{PORT}  (Ctrl+C to stop)")
     try:
         server.serve_forever()
@@ -384,6 +425,7 @@ def run_server():
 
 
 # ---------------------------------------------------------------- command line
+
 
 def ask_which(choice):
     """Show the suggestions and return the picked artist, or exit."""
