@@ -273,7 +273,8 @@ def build_book(name, api_key, mbid=None):
         )
     songs = songs_in(setlist)
     with ThreadPoolExecutor(max_workers=4) as pool:
-        for song, (lyrics, missing) in zip(songs, pool.map(lambda s: fetch_lyrics(s["title"], s["artist"]), songs)):
+        results = pool.map(lambda s: fetch_lyrics(s["title"], s["artist"]), songs)
+        for song, (lyrics, missing) in zip(songs, results, strict=True):
             song["lyrics"], song["missing"] = lyrics, missing
 
     venue = setlist.get("venue", {})

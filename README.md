@@ -23,7 +23,7 @@ Run the tests (offline, no API key needed):
 
 Lint and format with [ruff](https://docs.astral.sh/ruff/): `ruff check .` and `ruff format .`
 
-**CI** runs on every push and pull request: lint, then tests on Python 3.9–3.13 (Linux) and macOS.
+**CI** runs on every push and pull request: lint, then tests on Python 3.10–3.13 (Linux) and macOS.
 On `main` it also does a live run against setlist.fm, if the repository has a `SETLISTFM_API_KEY` secret.
 
 **Releases:** bump `version` in `pyproject.toml`, then push a matching tag:

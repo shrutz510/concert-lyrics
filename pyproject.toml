@@ -2,11 +2,11 @@
 name = "concert-lyrics"
 version = "1.0.0"
 description = "Lyrics to every song in an artist's latest setlist, on one page for the concert"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 
 [tool.ruff]
 line-length = 120
-target-version = "py39"
+target-version = "py310"
 
 [tool.ruff.lint]
 # pycodestyle, pyflakes, import order, bugbear, and pyupgrade checks
