@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Concert Lyrics</title>
+<style>
+:root{--bg:#fbf8f3;--fg:#1d1b19;--muted:#6f6860;--line:#d9d1c4;--accent:#8a3b2e;--err:#b03a2e}
+@media (prefers-color-scheme:dark){:root{--bg:#121110;--fg:#ece6dd;--muted:#9a9187;--line:#3a3632;--accent:#e08a6f;--err:#ef7f6f}}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.5 -apple-system,system-ui,sans-serif}
+main{max-width:520px;margin:12vh auto 0;padding:0 16px}
+h1{font:600 2rem/1.2 Georgia,serif;margin:0 0 6px}
+p{color:var(--muted);margin:0 0 24px}
+form{display:flex;gap:8px}
+input{flex:1;min-width:0;font:inherit;padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:transparent;color:var(--fg)}
+button{font:600 15px/1 -apple-system,system-ui,sans-serif;padding:0 18px;border:0;border-radius:10px;background:var(--accent);color:#fff;cursor:pointer}
+button:disabled{opacity:.6}
+#msg{margin-top:16px;color:var(--muted)}
+#msg.err{color:var(--err)}
+#sugg{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+#sugg button{background:transparent;color:var(--fg);border:1px solid var(--line);padding:12px 14px;text-align:left;font-weight:500}
+#sugg small{color:var(--muted);font-weight:400}
+.warn{border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:20px;font-size:14px}
+.warn a{color:var(--accent)}
+</style>
+</head>
+<body>
+<main>
+<h1>Concert Lyrics</h1>
+<p>Enter who you're seeing. You'll get their latest setlist from setlist.fm with the lyrics to every song, on one page.</p>
+$key_warning
+<form id="f"><input id="artist" placeholder="Artist name" autofocus required maxlength="100"><button id="go">Get lyrics</button></form>
+<div id="msg"></div>
+<div id="sugg"></div>
+</main>
+<script>
+const el = id => document.getElementById(id);
+
+async function build(params) {
+  const msg = el('msg');
+  el('sugg').innerHTML = '';
+  el('go').disabled = true;
+  msg.className = '';
+  msg.textContent = 'Finding the latest setlist and fetching lyrics… (about 10–30 seconds)';
+  try {
+    const res = await fetch('/build?' + new URLSearchParams(params));
+    const data = await res.json();
+    if (res.ok) { location.href = data.url; return; }
+    msg.className = 'err';
+    msg.textContent = data.error;
+    for (const s of data.suggestions || []) {
+      const btn = document.createElement('button');
+      btn.textContent = s.name;
+      if (s.note) { const n = document.createElement('small'); n.textContent = '  ' + s.note; btn.append(n); }
+      btn.onclick = () => { el('artist').value = s.name; build({artist: s.name, mbid: s.mbid}); };
+      el('sugg').append(btn);
+    }
+  } catch {
+    msg.className = 'err';
+    msg.textContent = "Can't reach the app. Is it still running?";
+  }
+  el('go').disabled = false;
+}
+
+el('f').onsubmit = ev => { ev.preventDefault(); build({artist: el('artist').value.trim()}); };
+</script>
+</body>
+</html>

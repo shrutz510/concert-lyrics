@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>$artist Lyrics</title>
+<style>
+:root{--bg:#fbf8f3;--fg:#1d1b19;--muted:#6f6860;--line:#e4ddd2;--accent:#8a3b2e}
+@media (prefers-color-scheme:dark){:root{--bg:#121110;--fg:#ece6dd;--muted:#9a9187;--line:#2c2926;--accent:#e08a6f}}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--fg);font:17px/1.6 Georgia,"Iowan Old Style",serif}
+main{max-width:640px;margin:0 auto;padding:24px 16px 80px}
+h1{font-size:2rem;margin:0 0 4px;line-height:1.2}
+.meta{color:var(--muted);font:14px/1.5 -apple-system,system-ui,sans-serif}
+.meta a{color:var(--accent)}
+.warn{margin-top:10px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font:14px/1.5 -apple-system,system-ui,sans-serif}
+nav ol{padding-left:1.6em;font:15px/1.9 -apple-system,system-ui,sans-serif}
+nav a{color:var(--fg);text-decoration:none;border-bottom:1px solid var(--line)}
+.sec{font:600 12px/1 -apple-system,system-ui,sans-serif;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin:18px 0 4px}
+.mark{color:var(--muted);font-size:12px}
+.song{border-top:1px solid var(--line);padding-top:28px;margin-top:36px;scroll-margin-top:12px}
+.song h2{margin:0;font-size:1.45rem;line-height:1.25}
+.by{color:var(--muted);font:14px/1.5 -apple-system,system-ui,sans-serif;margin:4px 0 16px}
+.lyrics{white-space:pre-wrap;font-size:1.06rem;line-height:1.7}
+.missing{color:var(--muted);font-style:italic}
+.top{position:fixed;right:16px;bottom:16px;background:var(--accent);color:#fff;border-radius:999px;padding:10px 16px;
+  font:600 14px/1 -apple-system,system-ui,sans-serif;text-decoration:none;box-shadow:0 2px 8px #0003}
+</style>
+</head>
+<body>
+<main id="top">
+<header>
+<h1>$artist</h1>
+<div class="meta">$meta</div>
+$warning
+</header>
+<nav>$song_list</nav>
+$songs
+<a class="top" href="#top">Songs ↑</a>
+</main>
+</body>
+</html>
